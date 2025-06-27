@@ -1,0 +1,30 @@
+/* src/App.css */
+.main-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: auto 1fr 1fr 1fr auto auto;
+  grid-template-areas:
+    "header header"
+    "left1 right1"
+    "left2 right2"
+    "left3 right2"
+    "bottom bottom"
+    "footer footer";
+  gap: 10px;
+  padding: 10px;
+  height: 100%;
+}
+
+.widget {
+  overflow: auto;
+  border-radius: 0px;
+}
+
+.header { grid-area: header; }
+.left1 { grid-area: left1; }
+.left2 { grid-area: left2; }
+.left3 { grid-area: left3; }
+.right1 { grid-area: right1; }
+.right2 { grid-area: right2; }
+.bottom { grid-area: bottom; }
+.footer { grid-area: footer; }
