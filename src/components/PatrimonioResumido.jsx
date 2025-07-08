@@ -18,7 +18,6 @@ import {
   CartesianGrid,
   LineChart,
   Line,
-  Legend,
 } from "recharts"
 
 // Importando todos os arquivos de dados
@@ -53,7 +52,7 @@ const legendAnimationStyles = `
   .legend-exit {
     opacity: 1;
     transform: translateX(0);
-    transition: all 0.3s ease-in-out;
+    transition: all 0.2s ease-in-out;
   }
   
   .legend-exit-active {
@@ -68,6 +67,23 @@ const legendAnimationStyles = `
   
   .chart-container {
     transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .refresh-button {
+    transition: all 0.2s ease;
+  }
+  
+  .refresh-button:hover {
+    transform: scale(1.05);
+  }
+  
+  .refresh-button.spinning {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 `
 
@@ -224,12 +240,11 @@ const CenterText = ({ title, value, hideValues }) => {
         style={{
           padding: "4px 10px",
           borderRadius: "4px",
-          backgroundColor: "rgba(46, 46, 46, 0.7)",
+          backgroundColor: "bg-gray-800",
           textAlign: "center",
         }}
-      >
-        <div style={{ color: "#aaaaaa", fontSize: "16px", marginBottom: "4px" }}>{title}</div>
-        <div style={{ color: "#ffffff", fontSize: "20px", fontWeight: "bold" }}>{hideValues ? "••••••" : value}</div>
+      ><div className="text-neutral-400 text-base mb-1">{title}</div>
+        <div className="text-white text-xl font-bold">{hideValues ? "••••••" : value}</div>
       </div>
     </div>
   )
@@ -291,10 +306,10 @@ const CustomActiveShapePieChart = (props) => {
       />
       <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
       <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-      <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="#FFF" fontSize={12}>
+      <text zIndex="9999" x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey + (cos >= 2 ) * 12} textAnchor={textAnchor} className="bg-neutral-500" fill="#FFF" fontSize={12}>
         {category}
       </text>
-      <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="#999" fontSize={11}>
+      <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="#FFF" fontSize={12}>
         {hideValues ? "••••••" : formatCurrency(value)} ({(percent * 100).toFixed(2)}%)
       </text>
     </g>
@@ -470,9 +485,8 @@ const CustomDropdown = ({ chartType, setChartType, showLegend, setShowLegend }) 
                 setChartType(option.value)
                 setIsOpen(false)
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-700 transition-colors ${
-                chartType === option.value ? "bg-neutral-700 text-blue-400" : "text-neutral-200"
-              }`}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-700 transition-colors ${chartType === option.value ? "bg-neutral-700 text-blue-400" : "text-neutral-200"
+                }`}
             >
               {option.icon}
               <span>{option.label}</span>
@@ -493,14 +507,12 @@ const CustomDropdown = ({ chartType, setChartType, showLegend, setShowLegend }) 
               {/* Switch customizado */}
               <button
                 onClick={() => setShowLegend(!showLegend)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  showLegend ? "bg-blue-600" : "bg-neutral-600"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showLegend ? "bg-blue-600" : "bg-neutral-600"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    showLegend ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showLegend ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
@@ -508,6 +520,38 @@ const CustomDropdown = ({ chartType, setChartType, showLegend, setShowLegend }) 
         </div>
       )}
     </div>
+  )
+}
+
+// NOVO: Componente do botão de refresh
+const RefreshButton = ({ onRefresh, isRefreshing }) => {
+  return (
+    <button
+      onClick={onRefresh}
+      disabled={isRefreshing}
+      className={`
+        flex items-center justify-center gap-2 
+        bg-[#444] hover:bg-[#555] disabled:bg-[#333] 
+        disabled:cursor-not-allowed text-white p-2 rounded 
+        transition-colors min-w-[32px] min-h-[32px]
+      `}
+      title={isRefreshing ? "Atualizando dados..." : "Atualizar dados do patrimônio"}
+    >
+      {isRefreshing ? (
+        // Spinner Tailwind
+        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+      ) : (
+        // Ícone de refresh normal
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+      )}
+    </button>
   )
 }
 
@@ -528,6 +572,9 @@ export default function PatrimonioResumido({ type = "light" }) {
   // NOVO: Estados para hover nas barras
   const [activeBarIndex, setActiveBarIndex] = useState(null)
   const [activeDetailBarIndex, setActiveDetailBarIndex] = useState(null)
+  // NOVO: Estados para o refresh
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshTime, setLastRefreshTime] = useState(new Date())
 
   // Usando o contexto compartilhado
   const {
@@ -540,6 +587,39 @@ export default function PatrimonioResumido({ type = "light" }) {
 
   // Verificar se é versão full
   const isFullVersion = type === "full"
+
+  // NOVO: Função para lidar com o refresh
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return
+
+    setIsRefreshing(true)
+
+    try {
+      console.log("=== INICIANDO REFRESH DOS DADOS ===")
+
+      // Simular chamada da API (substituir por chamada real)
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      // Aqui você faria a chamada real da API
+      // Exemplo:
+      // const response = await fetch('/api/patrimonio/resumo')
+      // const newData = await response.json()
+      // updatePatrimonioData(newData)
+
+      setLastRefreshTime(new Date())
+      console.log("=== REFRESH CONCLUÍDO ===")
+
+      // Opcional: Mostrar toast de sucesso
+      // showSuccessToast("Dados atualizados com sucesso!")
+
+    } catch (error) {
+      console.error("Erro ao atualizar dados:", error)
+      // Opcional: Mostrar toast de erro
+      // showErrorToast("Erro ao atualizar dados. Tente novamente.")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [isRefreshing])
 
   // Calcular o valor total do patrimônio (excluindo Futuros, Termos e Aluguel)
   const totalPatrimonio = calcularTotalPatrimonio()
@@ -669,7 +749,7 @@ export default function PatrimonioResumido({ type = "light" }) {
               onClick={isFullVersion ? handlePieClick : undefined}
               cursor={isFullVersion ? "pointer" : "default"}
             />
-           
+
             <Tooltip content={<CustomTooltip hideValues={hideValues} />} />
           </RadialBarChart>
         </ResponsiveContainer>
@@ -693,7 +773,7 @@ export default function PatrimonioResumido({ type = "light" }) {
             <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} angle={-45} textAnchor="end" height={80} />
             <YAxis stroke="#9CA3AF" fontSize={12} />
             <Tooltip cursor={false} content={<CustomTooltip hideValues={hideValues} />} />
-           
+
             <Bar
               dataKey="value"
               onClick={isFullVersion ? handleBarClick : undefined}
@@ -719,7 +799,7 @@ export default function PatrimonioResumido({ type = "light" }) {
             <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} angle={-45} textAnchor="end" height={80} />
             <YAxis stroke="#9CA3AF" fontSize={12} />
             <Tooltip content={<CustomTooltip hideValues={hideValues} />} />
-           
+
             <Line
               type="monotone"
               dataKey="value"
@@ -764,7 +844,7 @@ export default function PatrimonioResumido({ type = "light" }) {
               <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
             ))}
           </Pie>
-         
+
           <Tooltip content={<CustomTooltip hideValues={hideValues} />} />
         </PieChart>
       </ResponsiveContainer>
@@ -818,7 +898,7 @@ export default function PatrimonioResumido({ type = "light" }) {
               animationDuration={800}
               animationEasing="ease-out"
             />
-           
+
             <Tooltip content={<CustomTooltip hideValues={hideValues} />} />
           </RadialBarChart>
         </ResponsiveContainer>
@@ -842,7 +922,7 @@ export default function PatrimonioResumido({ type = "light" }) {
             <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} angle={-45} textAnchor="end" height={80} />
             <YAxis stroke="#9CA3AF" fontSize={12} />
             <Tooltip cursor={false} content={<CustomTooltip hideValues={hideValues} />} />
-           
+
             <Bar
               dataKey="value"
               onClick={handleDetailBarClick}
@@ -868,7 +948,7 @@ export default function PatrimonioResumido({ type = "light" }) {
             <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} angle={-45} textAnchor="end" height={80} />
             <YAxis stroke="#9CA3AF" fontSize={12} />
             <Tooltip content={<CustomTooltip hideValues={hideValues} />} />
-           
+
             <Line
               type="monotone"
               dataKey="value"
@@ -911,7 +991,7 @@ export default function PatrimonioResumido({ type = "light" }) {
               <Cell key={`cell-detail-${index}`} fill={entry.color} stroke="none" />
             ))}
           </Pie>
-         
+
           <Tooltip content={<CustomTooltip hideValues={hideValues} />} />
         </PieChart>
       </ResponsiveContainer>
@@ -956,9 +1036,8 @@ export default function PatrimonioResumido({ type = "light" }) {
           <div className="overflow-y-auto max-h-[250px]">
             {/* Adicionar opção "Todos" no topo da legenda */}
             <div
-              className={`flex items-center justify-between p-1 border-b border-neutral-600 cursor-pointer hover:bg-neutral-700 transition-colors transition-all duration-300 relative group ${
-                contextSelectedSubcategory === null ? "bg-neutral-700 border-l-4" : ""
-              }`}
+              className={`flex items-center justify-between p-1 border-b border-neutral-600 cursor-pointer hover:bg-neutral-700 transition-colors transition-all duration-300 relative group ${contextSelectedSubcategory === null ? "bg-neutral-700 border-l-4" : ""
+                }`}
               style={contextSelectedSubcategory === null ? { borderLeftColor: mainColor } : {}}
               onClick={() => {
                 contextSetSelectedSubcategory(null)
@@ -989,9 +1068,8 @@ export default function PatrimonioResumido({ type = "light" }) {
               return (
                 <div
                   key={index}
-                  className={`flex items-center justify-between p-1 border-b border-neutral-600 cursor-pointer hover:bg-neutral-700 transition-colors transition-all duration-300 relative group ${
-                    contextSelectedSubcategory === item.id ? "bg-neutral-700 border-l-4" : ""
-                  }`}
+                  className={`flex items-center justify-between p-1 border-b border-neutral-600 cursor-pointer hover:bg-neutral-700 transition-colors transition-all duration-300 relative group ${contextSelectedSubcategory === item.id ? "bg-neutral-700 border-l-4" : ""
+                    }`}
                   style={contextSelectedSubcategory === item.id ? { borderLeftColor: itemColor } : {}}
                   onClick={() => {
                     contextSetSelectedSubcategory(item.id)
@@ -1164,26 +1242,44 @@ export default function PatrimonioResumido({ type = "light" }) {
     }
   }
 
+  // Função para formatar o timestamp da última atualização  
+  const formatLastRefreshTime = (date) => {
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
   return (
     <div className="bg-dark-200 text-neutral-200 h-full flex flex-col overflow-hidden">
       <StyleSheet />
       {/* Cabeçalho com acordeão */}
       <div ref={headerRef} className="sticky top-0 z-[1100] bg-dark-200">
-        <div className="bg-dark-100">
-          <div className="flex justify-between items-center p-2">
+        <div className="bg-dark-100 ">
+          <div className="flex justify-between items-center p-1 pl-2">
             <div className="flex-1">
               <div>Patrimônio Resumido</div>
-              <div className="text-xs text-neutral-400 flex">Últ. Atualização: 17/04/2025 09:26:49</div>
+             
             </div>
-            {/* NOVO: Dropdown customizado apenas na versão full */}
-            {isFullVersion && (
-              <CustomDropdown
-                chartType={chartType}
-                setChartType={setChartType}
-                showLegend={showLegend}
-                setShowLegend={setShowLegend}
-              />
-            )}
+            {/* Botões de ação no cabeçalho */}
+            <div className="flex items-center gap-2">
+              {/* Botão de refresh - sempre visível */}
+              <RefreshButton onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+
+              {/* Dropdown customizado apenas na versão full */}
+              {isFullVersion && (
+                <CustomDropdown
+                  chartType={chartType}
+                  setChartType={setChartType}
+                  showLegend={showLegend}
+                  setShowLegend={setShowLegend}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1193,21 +1289,21 @@ export default function PatrimonioResumido({ type = "light" }) {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Cards de resumo - Usando cores do Tailwind */}
           <div className="bg-neutral-800 p-2 grid grid-cols-3 gap-2">
-            <div className="bg-dark-100 rounded-lg p-2 shadow-md border-l-4 border-orange-500 transition-transform hover:scale-[1.02]">
+            <div className="bg-dark-100 rounded-lg p-2 shadow-md border-l-4 transition-transform hover:scale-[1.02]">
               <div className="flex justify-between items-center">
                 <div className="text-xs uppercase text-neutral-400 mb-1">Patrimônio Total</div>
               </div>
               <div className="text-lg font-bold text-white">{hideValues ? "••••••" : formattedTotal}</div>
               <div className="text-xs text-neutral-400">Excluindo Futuros/Termo e Aluguel</div>
             </div>
-            <div className="bg-dark-100 rounded-lg p-2 shadow-md border-l-4 border-violet-500 transition-transform hover:scale-[1.02]">
+            <div className="bg-dark-100 rounded-lg p-2 shadow-md border-l-4 transition-transform hover:scale-[1.02]">
               <div className="flex justify-between items-center">
                 <div className="text-xs uppercase text-neutral-400 mb-1">Saldo em Conta</div>
               </div>
               <div className="text-lg font-bold text-white">{hideValues ? "••••••" : "R$ 10.000,00"}</div>
               <div className="text-xs text-neutral-400">10,00% do patrimônio</div>
             </div>
-            <div className="bg-dark-100 rounded-lg p-2 shadow-md border-l-4 border-blue-500 transition-transform hover:scale-[1.02]">
+            <div className="bg-dark-100 rounded-lg p-2 shadow-md border-l-4 transition-transform hover:scale-[1.02]">
               <div className="flex justify-between items-center">
                 <div className="text-xs uppercase text-neutral-400 mb-1">Carteira Total</div>
               </div>
@@ -1263,9 +1359,8 @@ export default function PatrimonioResumido({ type = "light" }) {
                       {chartData.map((item, index) => (
                         <div
                           key={index}
-                          className={`flex items-center justify-between p-1 border-b border-neutral-600 cursor-pointer hover:bg-neutral-700 transition-colors transition-all duration-300 relative group ${
-                            contextSelectedCategory === item.id ? "bg-neutral-700 border-l-4" : ""
-                          }`}
+                          className={`flex items-center justify-between p-1 border-b border-neutral-600 cursor-pointer hover:bg-neutral-700 transition-colors transition-all duration-300 relative group ${contextSelectedCategory === item.id ? "bg-neutral-700 border-l-4" : ""
+                            }`}
                           style={contextSelectedCategory === item.id ? { borderLeftColor: item.color } : {}}
                           onClick={() => handleLegendClick(item)}
                           title="Clique para ver detalhes"
@@ -1320,8 +1415,8 @@ export default function PatrimonioResumido({ type = "light" }) {
                       )}
 
                       {/* Patrimônio total com cores do Tailwind */}
-                      <div className="flex items-center mt-4 pt-4 border-t border-neutral-600">
-                        <div className="w-3 h-3 bg-gradient-to-r from-orange-500 to-blue-500 rounded mr-2"></div>
+                      <div className="flex items-center mt-4">
+                        <div className="w-3 h-3 bg-gradient-to-r from-orange-500 to-blue-500 rounded-lg mr-2"></div>
                         <strong className="text-white text-sm">
                           Patrimônio Total: {hideValues ? "••••••" : formattedTotal}
                         </strong>
@@ -1505,6 +1600,7 @@ export default function PatrimonioResumido({ type = "light" }) {
                   <br />• Alternar entre visualização em Pizza, Radial, Barras e Linha
                   <br />• Controlar a exibição da legenda
                   <br />• Clicar em uma categoria no gráfico ou na legenda para ver detalhes da sua composição
+                  <br />• Atualizar os dados a qualquer momento clicando no botão de refresh
                 </>
               )}
               <br />

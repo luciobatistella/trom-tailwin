@@ -7,6 +7,7 @@ import Boleta from "./Boleta"
 import SysUsers from "./sys-users"
 import AlarmIcon from "./alarm-icon"
 import AlarmManager from "./alarm-manager"
+import Yzzy from "./yzzy"
 
 const Header = () => {
   // Usando o contexto para acessar o estado global de hideValues e updatePatrimonio
@@ -18,10 +19,37 @@ const Header = () => {
   // Estados para controlar dropdown e modal
   const [openDropdown, setOpenDropdown] = useState(false)
   const [openUserModal, setOpenUserModal] = useState(false)
-  const [openBoletaModal, setOpenBoletaModal] = useState(false)
-  const [tipoOperacao, setTipoOperacao] = useState("comprar") // 'comprar' ou 'vender'
   const [openMovimentacaoDropdown, setOpenMovimentacaoDropdown] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // NOVO: Estado para controlar o modal da YZZY
+  const [openYzzyModal, setOpenYzzyModal] = useState(false)
+
+  // NOVO: Sistema de múltiplas boletas
+  const [boletas, setBoletas] = useState([])
+  const MAX_BOLETAS = 3
+const RefreshButton = () => {
+  return (
+    <button
+      
+      className={`
+        flex items-center justify-center gap-2 
+        bg-[#444] hover:bg-[#555] disabled:bg-[#333] 
+        disabled:cursor-not-allowed text-white p-2 rounded 
+        transition-colors min-w-[32px] min-h-[32px]
+      `}
+    >
+     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+    </button>
+  )
+}
 
   // Estado para o usuário atual
   const [currentUser, setCurrentUser] = useState({
@@ -41,6 +69,55 @@ const Header = () => {
     fundos: 15000,
   })
 
+  // NOVA: Função para abrir nova boleta
+  const abrirNovaBoleta = (tipoOperacao) => {
+    if (boletas.length >= MAX_BOLETAS) {
+      console.warn(`Máximo de ${MAX_BOLETAS} boletas abertas simultaneamente`)
+      return
+    }
+
+    const novaBoleta = {
+      id: Date.now(),
+      tipoOperacao,
+      position: { x: boletas.length * 40, y: boletas.length * 40 },
+      zIndex: 10000 + boletas.length,
+      createdAt: new Date(),
+    }
+
+    setBoletas(prev => [...prev, novaBoleta])
+  }
+
+  // NOVA: Função para fechar boleta específica
+  const fecharBoleta = (boletaId) => {
+    setBoletas(prev => prev.filter(boleta => boleta.id !== boletaId))
+  }
+
+  // NOVA: Função para trazer boleta para frente
+  const trazerBoletaParaFrente = (boletaId) => {
+    setBoletas(prev => {
+      const maxZ = Math.max(...prev.map(b => b.zIndex), 9999)
+      return prev.map(boleta => 
+        boleta.id === boletaId 
+          ? { ...boleta, zIndex: maxZ + 1 }
+          : boleta
+      )
+    })
+  }
+
+  // NOVA: Função para organizar boletas em cascata
+  const organizarBoletas = () => {
+    setBoletas(prev => prev.map((boleta, index) => ({
+      ...boleta,
+      position: { x: index * 40, y: index * 40 },
+      zIndex: 10000 + index
+    })))
+  }
+
+  // NOVA: Função para fechar todas as boletas
+  const fecharTodasBoletas = () => {
+    setBoletas([])
+  }
+
   // Função para obter a cor do badge baseado no tipo de usuário
   const getTypeBadgeColor = (type) => {
     switch (type) {
@@ -51,7 +128,7 @@ const Header = () => {
       case "user":
         return "bg-green-500"
       default:
-        return "bg-gray-500"
+        return "bg-neutral-500"
     }
   }
 
@@ -113,7 +190,7 @@ const Header = () => {
       valor: 125.5,
       data: "27/01/2025 14:30",
       status: "Processado",
-      statusColor: "#4CAF50",
+      statusColor: "green",
     },
     {
       id: 2,
@@ -122,7 +199,7 @@ const Header = () => {
       valor: -3678.0,
       data: "27/01/2025 10:15",
       status: "Executado",
-      statusColor: "#2196F3",
+      statusColor: "blue",
     },
     {
       id: 3,
@@ -131,7 +208,7 @@ const Header = () => {
       valor: 3446.0,
       data: "26/01/2025 16:45",
       status: "Liquidado",
-      statusColor: "#4CAF50",
+      statusColor: "green",
     },
     {
       id: 4,
@@ -140,7 +217,7 @@ const Header = () => {
       valor: 89.3,
       data: "26/01/2025 09:00",
       status: "Processado",
-      statusColor: "#4CAF50",
+      statusColor: "green",
     },
     {
       id: 5,
@@ -149,7 +226,7 @@ const Header = () => {
       valor: -15.9,
       data: "25/01/2025 18:20",
       status: "Debitado",
-      statusColor: "#FF9800",
+      statusColor: "orange",
     },
   ]
 
@@ -177,36 +254,111 @@ const Header = () => {
     console.log(`Usuário alterado para: ${userId} - ${userName}`)
   }
 
-  // Adicionar este useEffect após os outros estados
+  // NOVO: Indicador de boletas abertas
+  const renderIndicadorBoletas = () => {
+    if (boletas.length === 0) return null
+    
+    return (
+      <div className="flex items-center gap-2 ml-2">
+        <div className="bg-orange-500 text-white px-2 py-1 rounded text-xs font-bold">
+          {boletas.length} Boleta{boletas.length > 1 ? 's' : ''}
+        </div>
+        
+        {boletas.length > 1 && (
+          <button
+            onClick={organizarBoletas}
+            className="bg-neutral-600 hover:bg-neutral-500 text-white px-2 py-1 rounded text-xs"
+            title="Organizar boletas (Ctrl+Shift+O)"
+          >
+            📐
+          </button>
+        )}
+        
+        <button
+          onClick={fecharTodasBoletas}
+          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+          title="Fechar todas (Ctrl+Shift+C)"
+        >
+          ✕
+        </button>
+      </div>
+    )
+  }
+
+  // MODIFICADO: useEffect com atalhos para múltiplas boletas
   useEffect(() => {
     const handleKeyDown = (event) => {
+      // F5 - Nova boleta de compra
       if (event.key === "F5") {
         event.preventDefault()
-        setTipoOperacao("comprar")
-        setOpenBoletaModal(true)
-      } else if (event.key === "F9") {
+        abrirNovaBoleta("comprar")
+      }
+      // F9 - Nova boleta de venda  
+      else if (event.key === "F9") {
         event.preventDefault()
-        setTipoOperacao("vender")
-        setOpenBoletaModal(true)
-      } else if (event.shiftKey && event.key === "U") {
+        abrirNovaBoleta("vender")
+      }
+      // Shift + U - Abrir modal de usuários
+      else if (event.shiftKey && event.key === "U") {
         event.preventDefault()
         setOpenUserModal(true)
+      }
+      // Ctrl + Shift + C - Fechar todas as boletas
+      else if (event.ctrlKey && event.shiftKey && event.key === "C") {
+        event.preventDefault()
+        fecharTodasBoletas()
+      }
+      // Ctrl + Shift + O - Organizar boletas
+      else if (event.ctrlKey && event.shiftKey && event.key === "O") {
+        event.preventDefault()
+        organizarBoletas()
+      }
+      // NOVO: Ctrl + Y - Abrir YZZY
+      else if (event.ctrlKey && event.key === "y") {
+        event.preventDefault()
+        setOpenYzzyModal(true)
+      }
+      // F1-F3 - Focar em boleta específica
+      else if (["F1", "F2", "F3"].includes(event.key)) {
+        event.preventDefault()
+        const index = parseInt(event.key.slice(1)) - 1
+        if (boletas[index]) {
+          trazerBoletaParaFrente(boletas[index].id)
+        }
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [boletas])
+
+  // NOVA: Persistência de estado (opcional)
+  useEffect(() => {
+    localStorage.setItem('boletas_abertas', JSON.stringify(boletas))
+  }, [boletas])
+
+  // NOVA: Recuperar boletas ao carregar (opcional)
+  useEffect(() => {
+    const boletasSalvas = localStorage.getItem('boletas_abertas')
+    if (boletasSalvas) {
+      try {
+        const parsed = JSON.parse(boletasSalvas)
+        setBoletas(parsed)
+      } catch (error) {
+        console.error('Erro ao recuperar boletas:', error)
+      }
+    }
   }, [])
 
   return (
-    <div className="bg-[#2a2a2a] text-white relative">
+    <div className="bg-neutral-700/50 text-white relative">
       {/* Header principal */}
       <div className="grid grid-cols-3 items-center px-4 py-2">
         {/* Coluna da esquerda - Usuário */}
         <div className="flex items-center justify-start">
           <div className="flex items-center">
             <span
-              className="cursor-pointer flex items-center hover:bg-[#3a3a3a] rounded px-2 py-1 transition-colors duration-200"
+              className="cursor-pointer flex items-center hover:bg-neutral-700 rounded px-2 py-1 transition-colors duration-200"
               onClick={() => setOpenUserModal(true)}
             >
               <div className="flex items-center">
@@ -216,7 +368,7 @@ const Header = () => {
                       <path
                         d="M299.875,40a14.872,14.872,0,1,0,14.872,14.872A14.889,14.889,0,0,0,299.875,40Zm8.575,23.068v-.587c0-2.028-2.343-2.768-3.6-3.3-.454-.194-1.31-.605-2.189-1.034a1.2,1.2,0,0,1-.6-.86l-.1-.962a4.13,4.13,0,0,0,1.38-2.469h.152a.51.51,0,0,0,.5-.4l.238-1.469a.487.487,0,0,0-.5-.5c.005-.031.011-.063.015-.089a5.078,5.078,0,0,0,.06-.513c.015-.134.027-.272.033-.415a3.327,3.327,0,0,0-.286-1.64,3.884,3.884,0,0,0-.915-1.332c-1.162-1.1-2.509-1.528-3.658-.644a2.658,2.658,0,0,0-2.384,1.009,3.128,3.128,0,0,0-.693,1.4,4.449,4.449,0,0,0-.16,1.061,4.3,4.3,0,0,0,.108,1.166.491.491,0,0,0-.458.5l.237,1.469a.511.511,0,0,0,.5.4h.136a4.932,4.932,0,0,0,1.392,2.515l-.094.929a1.2,1.2,0,0,1-.6.861c-.85.415-1.686.814-2.187,1.02-1.18.486-3.6,1.276-3.6,3.3v.459a11.876,11.876,0,1,1,17.267.127Z"
                         transform="translate(-285.003 -40.003)"
-                        fill="#F7941E"
+                        fill="#F59E0B"
                       />
                     </svg>
                   </span>
@@ -249,6 +401,8 @@ const Header = () => {
               </span>
             </span>
           </div>
+          {/* NOVO: Indicador de boletas abertas */}
+          {renderIndicadorBoletas()}
         </div>
 
         {/* Coluna do centro - Patrimônio Total */}
@@ -257,7 +411,7 @@ const Header = () => {
             <div className="total-value flex items-center">
               <span
                 className={`value text-sm cursor-pointer rounded px-2 py-1 transition-colors flex items-center min-w-[280px] ${
-                  openDropdown ? "bg-[#404040] text-white" : "hover:bg-[#3a3a3a]"
+                  openDropdown ? "bg-neutral-600 text-white" : "hover:bg-neutral-700"
                 }`}
                 onClick={() => setOpenDropdown(!openDropdown)}
               >
@@ -266,7 +420,7 @@ const Header = () => {
                     <label className="font-bold mr-1">PATRIMÔNIO TOTAL</label>-{" "}
                     {hideValues ? "••••••" : formatCurrency(patrimonioData.total)}
                   </div>
-                  <div className="text-xs text-[#aaa] leading-none">Últ. Atualização: {lastUpdated}</div>
+                  <div className="text-xs text-neutral-400 leading-none">Últ. Atualização: {lastUpdated}</div>
                 </div>
                 <span
                   className={`ml-3 transform transition-transform duration-200 ${openDropdown ? "rotate-180" : ""}`}
@@ -287,10 +441,11 @@ const Header = () => {
                 </span>
               </span>
 
-              {/* Botão de Visibilidade (Olho) */}
+              {/* Botões de Visibilidade e YZZY */}
               <div className="flex items-center gap-2 ml-3">
+                {/* Botão de Visibilidade (Olho) */}
                 <button
-                  className="bg-[#444] hover:bg-[#555] text-white p-2 rounded transition-colors relative"
+                  className="bg-neutral-600 hover:bg-neutral-500 text-white p-2 rounded transition-colors relative"
                   onClick={() => setHideValues(!hideValues)}
                   title={hideValues ? "Mostrar valores" : "Ocultar valores"}
                 >
@@ -330,60 +485,92 @@ const Header = () => {
                     </svg>
                   )}
                 </button>
+
+                {/* NOVO: Botão da YZZY */}
+                <button
+                  className="hide bg-gradient-to-r from-[#F7941E] to-[#FF6B35] hover:from-[#e8851a] hover:to-[#e55a2b] text-white p-2 rounded transition-all duration-200 relative group"
+                  onClick={() => setOpenYzzyModal(true)}
+                  title="Abrir YZZY - Assistente de Investimentos (Ctrl+Y)"
+                  hidden
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="group-hover:scale-110 transition-transform"
+                  >
+                    {/* Ícone de IA/Robô */}
+                    <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
+                    <circle cx="12" cy="5" r="2"/>
+                    <path d="m12 7.01v4"/>
+                    <path d="M8 16h.01"/>
+                    <path d="M16 16h.01"/>
+                    <path d="m9 9-1-1"/>
+                    <path d="m15 9 1-1"/>
+                  </svg>
+                </button>
               </div>
             </div>
 
             {/* Dropdown com informações do patrimônio */}
             {openDropdown && (
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-80 bg-[#353535] rounded-lg shadow-lg z-[1200] border border-[#404040]">
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-80 bg-neutral-700 rounded-lg shadow-lg z-[1200] border border-neutral-600">
                 <div className="p-4">
                   <div className="flex flex-col gap-2">
                     {/* Título da seção sem badge */}
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="text-xs uppercase text-[#aaaaaa] font-bold">Visão Geral</div>
+                    <div className="flex justify-between items-center mb-0">
+                      <div className="text-xs uppercase text-neutral-400 font-bold">Visão Geral</div>
+                      
+                      <RefreshButton />
                     </div>
 
                     {/* Data de última atualização */}
-                    <div className="text-xs text-[#aaaaaa] mb-2 pb-2 border-b border-[#404040]">
+                    <div className="text-xs text-neutral-400 mb-2 pb-1 border-b border-neutral-600">
                       Últ. Atualização: {lastUpdated}
                     </div>
 
                     {/* Patrimônio Total */}
                     <div className="flex justify-between py-1">
-                      <div className="text-xs uppercase text-[#8f8f8f]">Patrimônio Total</div>
+                      <div className="text-xs uppercase text-neutral-300">Patrimônio Total</div>
                       <div className="text-xs uppercase font-bold min-w-[100px] text-right">
                         {hideValues ? "••••••" : formatCurrency(patrimonioData.total)}
                       </div>
                     </div>
-                    <div className="border-t border-[#404040]"></div>
+                    <div className="border-t border-neutral-600"></div>
 
                     {/* Saldo em conta */}
                     <div className="flex justify-between py-1">
-                      <div className="text-xs uppercase text-[#8f8f8f]">Saldo em conta</div>
+                      <div className="text-xs uppercase text-neutral-300">Saldo em conta</div>
                       <div className="text-xs uppercase font-bold min-w-[120px] text-right">
                         {hideValues
                           ? "••••••"
                           : `${formatCurrency(patrimonioData.saldoConta)} (${((patrimonioData.saldoConta / patrimonioData.total) * 100).toFixed(2)}%)`}
                       </div>
                     </div>
-                    <div className="border-t border-[#404040]"></div>
+                    <div className="border-t border-neutral-600"></div>
 
                     {/* Carteira total */}
                     <div className="flex justify-between py-1">
-                      <div className="text-xs uppercase text-[#8f8f8f]">Carteira total</div>
+                      <div className="text-xs uppercase text-neutral-300">Carteira total</div>
                       <div className="text-xs uppercase font-bold min-w-[120px] text-right">
                         {hideValues
                           ? "••••••"
                           : `${formatCurrency(patrimonioData.carteiraTotal)} (${((patrimonioData.carteiraTotal / patrimonioData.total) * 100).toFixed(2)}%)`}
                       </div>
                     </div>
-                    <div className="border-t border-[#404040]"></div>
+                    <div className="border-t border-neutral-600"></div>
 
                     {/* Renda Variável */}
                     <div className="flex justify-between items-center py-1">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#F7941E" }}></div>
-                        <div className="text-xs uppercase text-[#8f8f8f]">Renda Variável</div>
+                        <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                        <div className="text-xs uppercase text-neutral-300">Renda Variável</div>
                       </div>
                       <div className="text-xs uppercase font-bold min-w-[140px] text-right">
                         {hideValues
@@ -391,13 +578,13 @@ const Header = () => {
                           : `${formatCurrency(patrimonioData.rendaVariavel)} (${((patrimonioData.rendaVariavel / patrimonioData.total) * 100).toFixed(0)}%)`}
                       </div>
                     </div>
-                    <div className="border-t border-[#404040]"></div>
+                    <div className="border-t border-neutral-600"></div>
 
                     {/* Renda Fixa Pública */}
                     <div className="flex justify-between items-center py-1">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#8CC63F" }}></div>
-                        <div className="text-xs uppercase text-[#8f8f8f]">Renda Fixa Pública</div>
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        <div className="text-xs uppercase text-neutral-300">Renda Fixa Pública</div>
                       </div>
                       <div className="text-xs uppercase font-bold min-w-[140px] text-right">
                         {hideValues
@@ -405,13 +592,13 @@ const Header = () => {
                           : `${formatCurrency(patrimonioData.rendaFixaPublica)} (${((patrimonioData.rendaFixaPublica / patrimonioData.total) * 100).toFixed(0)}%)`}
                       </div>
                     </div>
-                    <div className="border-t border-[#404040]"></div>
+                    <div className="border-t border-neutral-600"></div>
 
                     {/* Renda Fixa Privada */}
                     <div className="flex justify-between items-center py-1">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#00AEEF" }}></div>
-                        <div className="text-xs uppercase text-[#8f8f8f]">Renda Fixa Privada</div>
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        <div className="text-xs uppercase text-neutral-300">Renda Fixa Privada</div>
                       </div>
                       <div className="text-xs uppercase font-bold min-w-[140px] text-right">
                         {hideValues
@@ -419,13 +606,13 @@ const Header = () => {
                           : `${formatCurrency(patrimonioData.rendaFixaPrivada)} (${((patrimonioData.rendaFixaPrivada / patrimonioData.total) * 100).toFixed(0)}%)`}
                       </div>
                     </div>
-                    <div className="border-t border-[#404040]"></div>
+                    <div className="border-t border-neutral-600"></div>
 
                     {/* Fundos */}
                     <div className="flex justify-between items-center py-1">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#EC008C" }}></div>
-                        <div className="text-xs uppercase text-[#8f8f8f]">Fundos</div>
+                        <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                        <div className="text-xs uppercase text-neutral-300">Fundos</div>
                       </div>
                       <div className="text-xs uppercase font-bold min-w-[140px] text-right">
                         {hideValues
@@ -433,13 +620,13 @@ const Header = () => {
                           : `${formatCurrency(patrimonioData.fundos)} (${((patrimonioData.fundos / patrimonioData.total) * 100).toFixed(0)}%)`}
                       </div>
                     </div>
-                    <div className="border-t border-[#404040]"></div>
+                    <div className="border-t border-neutral-600"></div>
 
                     {/* Saldo em Conta */}
                     <div className="flex justify-between items-center py-1">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#92278F" }}></div>
-                        <div className="text-xs uppercase text-[#8f8f8f]">Saldo em Conta</div>
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        <div className="text-xs uppercase text-neutral-300">Saldo em Conta</div>
                       </div>
                       <div className="text-xs uppercase font-bold min-w-[140px] text-right">
                         {hideValues
@@ -456,25 +643,19 @@ const Header = () => {
 
         {/* Coluna da direita - Botões de ação */}
         <div className="flex items-center justify-end gap-2 relative">
-          {/* Botão Comprar */}
+          {/* MODIFICADO: Botão Comprar */}
           <button
-            className="bg-[#058CE1] hover:bg-[#006FB5] text-white px-3 py-1.5 rounded text-xs uppercase font-bold transition-colors flex items-center gap-1"
-            onClick={() => {
-              setTipoOperacao("comprar")
-              setOpenBoletaModal(true)
-            }}
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-xs uppercase font-bold transition-colors flex items-center gap-1"
+            onClick={() => abrirNovaBoleta("comprar")}
           >
             <span>Comprar</span>
             <span className="text-[10px] opacity-70">F5</span>
           </button>
 
-          {/* Botão Vender */}
+          {/* MODIFICADO: Botão Vender */}
           <button
-            className="bg-[#FDAA1A] hover:bg-[#F09800] text-white px-3 py-1.5 rounded text-xs uppercase font-bold transition-colors flex items-center gap-1"
-            onClick={() => {
-              setTipoOperacao("vender")
-              setOpenBoletaModal(true)
-            }}
+            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-xs uppercase font-bold transition-colors flex items-center gap-1"
+            onClick={() => abrirNovaBoleta("vender")}
           >
             <span>Vender</span>
             <span className="text-[10px] opacity-70">F9</span>
@@ -486,41 +667,32 @@ const Header = () => {
           {/* Botão de Movimentação */}
           <div className="relative">
             <button
-              className="bg-[#444] hover:bg-[#555] text-white p-2 rounded transition-colors relative"
+              className="bg-neutral-600 hover:bg-neutral-500 text-white p-2 rounded transition-colors relative"
               onClick={() => setOpenMovimentacaoDropdown(!openMovimentacaoDropdown)}
               title="Movimentação"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3 3v18h18" />
-                <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
             </button>
 
             {/* Dropdown de Movimentação */}
             {openMovimentacaoDropdown && (
-              <div className="absolute top-full right-0 mt-2 w-96 bg-[#353535] rounded-lg shadow-lg z-[1200] border border-[#404040]">
+              <div className="absolute top-full right-0 mt-2 w-96 bg-neutral-700 rounded-lg shadow-lg z-[1200] border border-neutral-600">
                 <div className="p-4">
                   <div className="flex flex-col gap-2">
                     {/* Título da seção */}
-                    <div className="text-xs uppercase text-[#aaaaaa] font-bold mb-2 border-b border-[#404040] pb-2">
+                    <div className="text-xs uppercase text-neutral-400 font-bold mb-2 border-b border-neutral-600 pb-2">
                       Movimentação Recente
                     </div>
 
                     {movimentacaoData.map((movimento) => (
                       <div
                         key={movimento.id}
-                        className="bg-[#2e2e2e] rounded p-3 border-l-4"
-                        style={{ borderLeftColor: movimento.statusColor }}
+                        className={`bg-neutral-600 rounded p-3 border-l-4 ${
+                          movimento.statusColor === 'green' ? 'border-l-green-500' :
+                          movimento.statusColor === 'blue' ? 'border-l-blue-500' :
+                          movimento.statusColor === 'orange' ? 'border-l-orange-500' :
+                          'border-l-neutral-500'
+                        }`}
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center gap-2">
@@ -539,10 +711,14 @@ const Header = () => {
                           </div>
                         </div>
                         <div className="flex justify-between items-center">
-                          <div className="text-xs text-[#aaa]">{movimento.data}</div>
+                          <div className="text-xs text-neutral-400">{movimento.data}</div>
                           <div
-                            className="text-xs font-bold px-2 py-1 rounded"
-                            style={{ color: movimento.statusColor, backgroundColor: `${movimento.statusColor}20` }}
+                            className={`text-xs font-bold px-2 py-1 rounded ${
+                              movimento.statusColor === 'green' ? 'text-green-400 bg-green-900/20' :
+                              movimento.statusColor === 'blue' ? 'text-blue-400 bg-blue-900/20' :
+                              movimento.statusColor === 'orange' ? 'text-orange-400 bg-orange-900/20' :
+                              'text-neutral-400 bg-neutral-900/20'
+                            }`}
                           >
                             {movimento.status}
                           </div>
@@ -551,7 +727,7 @@ const Header = () => {
                     ))}
 
                     {movimentacaoData.length === 0 && (
-                      <div className="text-center py-4 text-[#aaa]">Nenhuma movimentação recente</div>
+                      <div className="text-center py-4 text-neutral-400">Nenhuma movimentação recente</div>
                     )}
                   </div>
                 </div>
@@ -564,8 +740,21 @@ const Header = () => {
       {/* Componente SysUsers para troca de usuário */}
       <SysUsers isOpen={openUserModal} onClose={() => setOpenUserModal(false)} onSelectUser={handleSelectUser} />
 
-      {/* Componente Boleta */}
-      <Boleta isOpen={openBoletaModal} onClose={() => setOpenBoletaModal(false)} tipoOperacao={tipoOperacao} />
+      {/* NOVO: Renderizar múltiplas boletas */}
+      {boletas.map((boleta, index) => (
+        <Boleta
+          key={boleta.id}
+          isOpen={true}
+          onClose={() => fecharBoleta(boleta.id)}
+          tipoOperacao={boleta.tipoOperacao}
+          initialPosition={boleta.position}
+          zIndex={boleta.zIndex}
+          boletaId={boleta.id}
+          isMultiple={boletas.length > 1}
+          index={index}
+          onBringToFront={trazerBoletaParaFrente}
+        />
+      ))}
 
       {/* Componente AlarmManager */}
       <AlarmManager
@@ -573,6 +762,12 @@ const Header = () => {
         onClose={() => setOpenAlarmManager(false)}
         alarms={alarms}
         onAlarmsChange={setAlarms}
+      />
+
+      {/* NOVO: Componente YZZY */}
+      <Yzzy
+        isOpen={openYzzyModal}
+        onClose={() => setOpenYzzyModal(false)}
       />
 
       {/* Overlay para fechar dropdown quando clicar fora */}

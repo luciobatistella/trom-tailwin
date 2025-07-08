@@ -1045,9 +1045,38 @@ export default function PatrimonioResumidoFull() {
       <div className="mb-6">
         {/* Título da seção de subcategorias */}
         <div className="mb-3">
-          <h4 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
+          {/* <h4 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
             Subcategorias de {getCategoryTitle(categoryId)}
-          </h4>
+          </h4> */}
+                    {(() => {
+            const categoria = patrimonioNivel1.find(item => item.id === contextSelectedCategory);
+            if (!categoria) return null;
+            const tailwindColor = getCategoryTailwindColor(categoria.id);
+            return (
+              <div
+                className="flex items-center justify-between rounded-lg mb-2"
+                
+              >
+                <div className="flex items-center gap-2">
+                  {/* Bolinha de cor */}
+                  <div
+                    className="w-4 h-4 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: tailwindColor }}
+                  />
+                  {/* Nome da categoria */}
+                  <span className="text-sm font-semibold text-white">{categoria.label}</span>
+                  {/* Porcentagem */}
+                  <span className="ml-2 text-xs font-bold" style={{ color: tailwindColor }}>
+                    {categoria.percent}
+                  </span>
+                </div>
+                {/* Total à direita */}
+                <span className="text-sm text-neutral-300 font-bold">
+                  {hideValues ? "••••••" : categoria.value}
+                </span>
+              </div>
+            );
+          })()}
           <div className="w-full h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent mt-1"></div>
         </div>
 
@@ -1229,7 +1258,7 @@ export default function PatrimonioResumidoFull() {
             <div className="flex justify-between items-center p-2">
               <div className="flex-1 cursor-pointer" onClick={() => setOpenAccordion(!openAccordion)}>
                 <div>Patrimônio Detalhado</div>
-                <div className="text-xs text-neutral-400 flex">Últ. Atualização: 17/04/2025 09:26:49</div>
+                {/* <div className="text-xs text-neutral-400 flex">Últ. Atualização: 17/04/2025 09:26:49</div> */}
               </div>
 
               <div
@@ -1316,7 +1345,7 @@ export default function PatrimonioResumidoFull() {
         <div className="p-2">
           <div className="p-4 m-1 text-white">
             {/* Cards de categorias */}
-            {renderCategoryCards()}
+            {/* {renderCategoryCards()} */}
 
             {/* Seletor de subcategorias - mostrar apenas se uma categoria estiver selecionada */}
             {contextSelectedCategory && renderSubcategoryButtons(contextSelectedCategory)}

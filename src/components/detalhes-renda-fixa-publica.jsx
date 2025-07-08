@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { DetalhesBase } from "./detalhes-base"
 import { formatCurrency } from "../utils/formatCurrency"
-import { usePatrimonio } from "../context/patrimonioContext" // Importar o contexto
+import { usePatrimonio } from "../context/patrimonioContext"
 
 export default function DetalhesRendaFixaPublica({ 
   ativo, 
@@ -12,8 +12,11 @@ export default function DetalhesRendaFixaPublica({
   categoriaTitle,    // Ex: "Renda Fixa Pública" 
   subcategoriaLabel  // Ex: "Tesouro Prefixado"
 }) {
-  // Acessar o contexto para obter o estado hideValues
+  // Acessar o contexto para obter o estado hideValues global
   const { hideValues } = usePatrimonio()
+  
+  // Estado local para controlar visibilidade apenas nesta página
+  const [localHideValues, setLocalHideValues] = useState(hideValues)
   
   const [showDetalhes, setShowDetalhes] = useState(true)
   const [showCondicoes, setShowCondicoes] = useState(true)
@@ -62,19 +65,19 @@ export default function DetalhesRendaFixaPublica({
     year: "numeric",
   })
 
-  // Função para formatar valores com base no hideValues
+  // Função para formatar valores com base no estado LOCAL
   const formatValue = (value) => {
-    return hideValues ? "••••••" : formatCurrency(value)
+    return localHideValues ? "••••••••••" : formatCurrency(value)
   }
 
   // Função para formatar quantidades
   const formatQuantity = (value) => {
-    return hideValues ? "••••••" : value.toLocaleString("pt-BR")
+    return localHideValues ? "••••••" : value.toLocaleString("pt-BR")
   }
 
   // Função para formatar percentuais
   const formatPercentage = (value) => {
-    return hideValues ? "••••••" : `${value.toFixed(2)}%`
+    return localHideValues ? "••••••" : `${value.toFixed(2)}%`
   }
 
   const actionButtons = (
@@ -152,7 +155,6 @@ export default function DetalhesRendaFixaPublica({
             <button
               onClick={() => {
                 console.log("Atualizando cotação...", ativo.cod)
-                // Aqui você pode chamar a função de atualização
               }}
               className="p-1 hover:bg-neutral-800 rounded transition-colors"
               title="Atualizar cotação"
@@ -174,17 +176,84 @@ export default function DetalhesRendaFixaPublica({
             </button>
           </div>
         </div>
-        <div className="text-2xl font-bold text-white mb-3">
-          {formatValue(ativo.valueUpdated || 0)}
+        
+        {/* Valor total com botão de visibilidade local */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className="text-2xl font-bold text-white">
+            {formatValue(ativo.valueUpdated || 0)}
+          </div>
+          <button
+            className="hover:bg-neutral-700 text-white p-1 rounded transition-colors"
+            onClick={() => setLocalHideValues(!localHideValues)}
+            title={localHideValues ? "Mostrar valores" : "Ocultar valores"}
+          >
+            {localHideValues ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                <line x1="2" x2="22" y1="2" y2="22" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
         </div>
+        
         <ul className="text-xs text-white-500 p-1">
-          <li className="flex justify-between border-b border-neutral-900 p-2">
+          <li className="flex justify-between items-center border-b border-neutral-900 p-2">
             <span>Cotação Atual</span>
-            <span>{formatValue(ativo.shareValue || 0)}</span>
+            <div className="flex items-center gap-2">
+              {/* Badge com seta e porcentagem de valorização */}
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-green-500">
+                {/* Seta indicativa */}
+                <svg 
+                  className={`w-3 h-3 ${isPositivo ? 'rotate-0' : 'rotate-180'}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                {/* Porcentagem */}
+                <span>
+                  {localHideValues ? "••••" : `${isPositivo ? '+' : ''}${percentualValorizacao.toFixed(2)}%`}
+                </span>
+              </div>
+              {/* Preço em destaque */}
+              <div className="gap-1 px-2 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                <span className="font-bold text-white">
+                  {formatValue(ativo.shareValue || 0)}
+                </span>
+              </div>
+            </div>
           </li>
           <li className="flex justify-between p-2">
             <span>Quantidade</span>
-            <span>{hideValues ? "••••••" : (ativo.qty || 0).toLocaleString("pt-BR")}</span>
+            <span>{localHideValues ? "••••••" : (ativo.qty || 0).toLocaleString("pt-BR")}</span>
           </li>
         </ul>
       </div>
@@ -347,15 +416,15 @@ export default function DetalhesRendaFixaPublica({
                     <>
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">Qtd Total</span>
-                        <span className="text-white font-medium">{hideValues ? "••••••" : (ativo.qty || 0).toLocaleString("pt-BR")}</span>
+                        <span className="text-white font-medium">{localHideValues ? "••••••" : (ativo.qty || 0).toLocaleString("pt-BR")}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">Qtd Bloqueada</span>
-                        <span className="text-orange-400 font-medium">{hideValues ? "••••••" : (ativo.blockedQty || 0).toLocaleString("pt-BR")}</span>
+                        <span className="text-orange-400 font-medium">{localHideValues ? "••••••" : (ativo.blockedQty || 0).toLocaleString("pt-BR")}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">Qtd Resgatada</span>
-                        <span className="text-red-400 font-medium">{hideValues ? "••••••" : (ativo.redemptionQty || 0).toLocaleString("pt-BR")}</span>
+                        <span className="text-red-400 font-medium">{localHideValues ? "••••••" : (ativo.redemptionQty || 0).toLocaleString("pt-BR")}</span>
                       </div>
                     </>
                   )}
@@ -369,11 +438,11 @@ export default function DetalhesRendaFixaPublica({
                     <>
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">Aplicado Hoje</span>
-                        <span className="text-green-400 font-medium">{hideValues ? "••••••" : `+${formatCurrency(ativo.valueInvestedToday || 0)}`}</span>
+                        <span className="text-green-400 font-medium">{localHideValues ? "••••••" : `+${formatCurrency(ativo.valueInvestedToday || 0)}`}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 px-3 bg-neutral-900/30">
                         <span className="text-neutral-400 font-medium">Resgatado Hoje</span>
-                        <span className="text-red-400 font-bold">{hideValues ? "••••••" : `-${formatCurrency(ativo.valueRedemptionToday || 0)}`}</span>
+                        <span className="text-red-400 font-bold">{localHideValues ? "••••••" : `-${formatCurrency(ativo.valueRedemptionToday || 0)}`}</span>
                       </div>
                     </>
                   )}

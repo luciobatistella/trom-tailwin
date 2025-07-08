@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { DetalhesBase } from "./detalhes-base"
 import { formatCurrency } from "../utils/formatCurrency"
-import { usePatrimonio } from "../context/patrimonioContext" // Importar o contexto
+import { usePatrimonio } from "../context/patrimonioContext"
 
 export default function DetalhesFinanceiro({ 
   ativo, 
@@ -12,8 +12,11 @@ export default function DetalhesFinanceiro({
   categoriaTitle = "Financeiro",
   subcategoriaLabel = "Conta Corrente"
 }) {
-  // Acessar o contexto para obter o estado hideValues
+  // Acessar o contexto para obter o estado hideValues global
   const { hideValues } = usePatrimonio()
+  
+  // Estado local para controlar visibilidade apenas nesta página
+  const [localHideValues, setLocalHideValues] = useState(hideValues)
   
   const [showDetalhesMovimentacao, setShowDetalhesMovimentacao] = useState(true)
   const [showInformacoesConta, setShowInformacoesConta] = useState(true)
@@ -35,14 +38,14 @@ export default function DetalhesFinanceiro({
     minute: "2-digit",
   })
 
-  // Função para formatar valores com base no hideValues
+  // Função para formatar valores com base no estado LOCAL
   const formatValue = (value) => {
-    return hideValues ? "••••••" : formatCurrency(value)
+    return localHideValues ? "••••••••••" : formatCurrency(value)
   }
 
   // Função para formatar quantidades
   const formatQuantity = (value) => {
-    return hideValues ? "••••••" : value.toLocaleString("pt-BR")
+    return localHideValues ? "••••••" : value.toLocaleString("pt-BR")
   }
 
   // Função para determinar o tipo de movimentação e cor
@@ -62,6 +65,10 @@ export default function DetalhesFinanceiro({
     if (tipo.includes('resgate')) return 'text-blue-400'
     return 'text-white'
   }
+
+  // Determinar se é entrada ou saída para o badge
+  const isEntrada = (ativo.valorAtual || 0) >= 0
+  const valorAbsoluto = Math.abs(ativo.valorAtual || ativo.value || 0)
 
   const actionButtons = (
     <div className="flex justify-between gap-3">
@@ -129,19 +136,110 @@ export default function DetalhesFinanceiro({
       <div className="p-3">
         <div className="flex justify-between items-center mb-1">
           <h4 className="text-sm font-semibold text-neutral-400 uppercase">
-            {ativo.valorAtual >= 0 ? 'Entrada' : 'Saída'}
+            {isEntrada ? 'Entrada' : 'Saída'}
           </h4>
-          <div className="text-xs text-neutral-500">
-            {ativo.dataMovimentacao || `Últ. Atualização: ${horaFormatada}`}
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-neutral-500">
+              {ativo.dataMovimentacao || `Últ. Atualização: ${horaFormatada}`}
+            </div>
+            <button
+              onClick={() => {
+                console.log("Atualizando movimentação...", ativo.codigo)
+              }}
+              className="p-1 hover:bg-neutral-800 rounded transition-colors"
+              title="Atualizar movimentação"
+            >
+              <svg
+                className="w-4 h-4 text-neutral-400 hover:text-white transition-colors"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </button>
           </div>
         </div>
-        <div className={`text-2xl font-bold mb-3 ${getCorPorTipo()}`}>
-          {formatValue(Math.abs(ativo.valorAtual || ativo.value || 0))}
+        
+        {/* Valor total com botão de visibilidade local */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`text-2xl font-bold ${getCorPorTipo()}`}>
+            {formatValue(valorAbsoluto)}
+          </div>
+          <button
+            className="hover:bg-neutral-700 text-white p-1 rounded transition-colors"
+            onClick={() => setLocalHideValues(!localHideValues)}
+            title={localHideValues ? "Mostrar valores" : "Ocultar valores"}
+          >
+            {localHideValues ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                <line x1="2" x2="22" y1="2" y2="22" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
         </div>
+        
         <ul className="text-xs text-white-500 p-1">
-          <li className="flex justify-between border-b border-neutral-900 p-2">
+          <li className="flex justify-between items-center border-b border-neutral-900 p-2">
             <span>Tipo</span>
-            <span>{getTipoMovimentacao()}</span>
+            <div className="flex items-center gap-2">
+              {/* Badge com seta indicando entrada/saída */}
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-green-500">
+                {/* Seta indicativa */}
+                <svg 
+                  className={`w-3 h-3 ${isEntrada ? 'rotate-0' : 'rotate-180'}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                {/* Tipo de movimentação */}
+                <span>
+                  {isEntrada ? 'Entrada' : 'Saída'}
+                </span>
+              </div>
+              {/* Tipo em destaque */}
+              <div className="gap-1 px-2 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                <span className="font-bold text-white">
+                  {getTipoMovimentacao()}
+                </span>
+              </div>
+            </div>
           </li>
           <li className="flex justify-between border-b border-neutral-900 p-2">
             <span>Status</span>
@@ -205,7 +303,7 @@ export default function DetalhesFinanceiro({
                   {ativo.quantidade && (
                     <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                       <span className="text-neutral-400">Quantidade</span>
-                      <span className="text-white font-medium">{hideValues ? "••••••" : ativo.quantidade.toLocaleString("pt-BR")}</span>
+                      <span className="text-white font-medium">{localHideValues ? "••••••" : ativo.quantidade.toLocaleString("pt-BR")}</span>
                     </div>
                   )}
                   {ativo.valorPorAcao && (
@@ -285,7 +383,7 @@ export default function DetalhesFinanceiro({
                     {ativo.chavePixUtilizada && (
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">Chave PIX</span>
-                        <span className="text-white font-medium">{hideValues ? "••••••" : ativo.chavePixUtilizada}</span>
+                        <span className="text-white font-medium">{localHideValues ? "••••••" : ativo.chavePixUtilizada}</span>
                       </div>
                     )}
                     {ativo.destinatario && (
@@ -297,7 +395,7 @@ export default function DetalhesFinanceiro({
                     {ativo.codigoBarras && (
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">Código de Barras</span>
-                        <span className="text-white font-medium text-xs">{hideValues ? "••••••" : ativo.codigoBarras}</span>
+                        <span className="text-white font-medium text-xs">{localHideValues ? "••••••" : ativo.codigoBarras}</span>
                       </div>
                     )}
                     {ativo.beneficiario && (
@@ -414,13 +512,13 @@ export default function DetalhesFinanceiro({
                     {ativo.taxaContratada && (
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">Taxa Contratada</span>
-                        <span className="text-white font-medium">{hideValues ? "••••••" : `${ativo.taxaContratada}% CDI`}</span>
+                        <span className="text-white font-medium">{localHideValues ? "••••••" : `${ativo.taxaContratada}% CDI`}</span>
                       </div>
                     )}
                     {ativo.percentualCDI && (
                       <div className="flex justify-between items-center py-2 px-3 border-b border-neutral-800/30">
                         <span className="text-neutral-400">% do CDI</span>
-                        <span className="text-white font-medium">{hideValues ? "••••••" : `${ativo.percentualCDI}%`}</span>
+                        <span className="text-white font-medium">{localHideValues ? "••••••" : `${ativo.percentualCDI}%`}</span>
                       </div>
                     )}
                     {ativo.saldoMedio && (
