@@ -19,6 +19,7 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
   const [showStockFinder, setShowStockFinder] = useState(false)
   const [showFavoritesDropdown, setShowFavoritesDropdown] = useState(false)
   const [favoritesDropdownRef, setFavoritesDropdownRef] = useState(useRef(null))
+  const [showPdfModal, setShowPdfModal] = useState(false)
 
   // Estado de confirmação
   const [confirmationState, setConfirmationState] = useState({
@@ -27,6 +28,10 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
     salvarSenha: false,
     accordionLotePadraoOpen: false,
     accordionLoteFracionadoOpen: false,
+    accordionTermoOpen: false,
+    accordionTotalGeralOpen: true, // Inicia aberto
+    termoAceito: false,
+    pdfLidoCompletamente: false,
   })
 
   // Estado de posicionamento
@@ -240,6 +245,12 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
 
   // Função para executar a ordem
   const executarOrdem = () => {
+    // Verificar se o termo foi aceito
+    if (!confirmationState.termoAceito) {
+      addToast("Você precisa aceitar o Termo de Desenquadramento para continuar", "error")
+      return
+    }
+
     // Verificar se a assinatura está correta (simulação)
     if (confirmationState.assinatura.length < 4) {
       addToast("Assinatura eletrônica inválida", "error")
@@ -264,20 +275,27 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
 
     // Fechar confirmação e resetar
     setConfirmationState({
-      ...confirmationState,
       showConfirmation: false,
       assinatura: "",
+      salvarSenha: false,
+      accordionLotePadraoOpen: false,
+      accordionLoteFracionadoOpen: false,
+      accordionTermoOpen: false,
+      termoAceito: false,
+      pdfLidoCompletamente: false,
     })
     onClose() // Fechar a boleta completamente
   }
 
   // Voltar para a tela de boleta
   const voltarParaBoleta = () => {
-    setConfirmationState({
-      ...confirmationState,
+    setConfirmationState(prevState => ({
+      ...prevState,
       showConfirmation: false,
       assinatura: "",
-    })
+      termoAceito: false,
+      pdfLidoCompletamente: false,
+    }))
   }
 
   // Atualizar tipo de operação quando a prop mudar
@@ -339,7 +357,9 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        if (confirmationState.showConfirmation) {
+        if (showPdfModal) {
+          setShowPdfModal(false)
+        } else if (confirmationState.showConfirmation) {
           voltarParaBoleta()
         } else {
           onClose()
@@ -356,7 +376,7 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
       }
 
       // Adicionar suporte para barra de espaço para abrir o StockFinder
-      if (event.key === " " && !confirmationState.showConfirmation) {
+      if (event.key === " " && !confirmationState.showConfirmation && !showPdfModal) {
         event.preventDefault()
         setShowStockFinder(true)
       }
@@ -369,7 +389,7 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [isOpen, onClose, confirmationState.showConfirmation])
+  }, [isOpen, onClose, confirmationState.showConfirmation, showPdfModal])
 
   // Auto-focus no campo quantidade quando a boleta abrir
   useEffect(() => {
@@ -377,10 +397,15 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
       setPosition({ x: 0, y: 0 }) // Resetar posição
 
       if (confirmationState.showConfirmation) {
-        // Focar imediatamente no campo de assinatura
-        setTimeout(() => {
-          confirmationInputRef.current?.focus()
-        }, 50) // Reduzir o timeout para ser mais rápido
+        // Focar no campo de assinatura apenas se o termo foi aceito
+        if (confirmationState.termoAceito && !showPdfModal) {
+          setTimeout(() => {
+            if (confirmationInputRef.current) {
+              confirmationInputRef.current.focus()
+              confirmationInputRef.current.select()
+            }
+          }, 150)
+        }
       } else if (quantidadeInputRef.current) {
         setTimeout(() => {
           quantidadeInputRef.current?.focus()
@@ -388,7 +413,7 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
         }, 100)
       }
     }
-  }, [isOpen, confirmationState.showConfirmation])
+  }, [isOpen, confirmationState.showConfirmation, confirmationState.termoAceito, showPdfModal])
 
   // Cleanup dos intervalos quando o componente desmonta
   useEffect(() => {
@@ -457,38 +482,32 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
     setIsDragging(false)
   }
 
-  // Calcular estilo de posicionamento
-  const getPositionStyle = () => {
-    if (position.x === 0 && position.y === 0) {
-      return {
-        position: "absolute",
-        left: "50%",
-        top: "50%",
-        transform: "translate(-50%, -50%)",
-      }
-    } else {
-      return {
-        position: "absolute",
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        transform: "none",
-      }
-    }
-  }
+  // Remover função getPositionStyle que não é mais necessária
 
-  // Toggle para os acordeões
+  // Toggle para os acordeões - abre um e fecha os outros
   const toggleAccordion = (type) => {
-    if (type === "padrao") {
-      setConfirmationState({
-        ...confirmationState,
-        accordionLotePadraoOpen: !confirmationState.accordionLotePadraoOpen,
-      })
-    } else {
-      setConfirmationState({
-        ...confirmationState,
-        accordionLoteFracionadoOpen: !confirmationState.accordionLoteFracionadoOpen,
-      })
-    }
+    setConfirmationState(prevState => {
+      const newState = {
+        ...prevState,
+        accordionLotePadraoOpen: false,
+        accordionLoteFracionadoOpen: false,
+        accordionTermoOpen: false,
+        accordionTotalGeralOpen: false,
+      }
+      
+      // Abre apenas o acordeão clicado
+      if (type === "padrao") {
+        newState.accordionLotePadraoOpen = !prevState.accordionLotePadraoOpen
+      } else if (type === "fracionado") {
+        newState.accordionLoteFracionadoOpen = !prevState.accordionLoteFracionadoOpen
+      } else if (type === "termo") {
+        newState.accordionTermoOpen = !prevState.accordionTermoOpen
+      } else if (type === "totalGeral") {
+        newState.accordionTotalGeralOpen = !prevState.accordionTotalGeralOpen
+      }
+      
+      return newState
+    })
   }
 
   // Função para lidar com mudanças na assinatura
@@ -504,8 +523,12 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999]" onClick={onClose}>
       <div
-        className="bg-[#2a2a2a] rounded-lg w-[420px] max-h-[85vh] overflow-y-auto shadow-xl border border-[#404040] relative z-[10000] modal-container"
-        style={getPositionStyle()}
+        className="bg-[#2a2a2a] rounded-lg w-[420px] max-h-[85vh] overflow-y-auto shadow-xl border border-[#404040] fixed z-[10000] modal-container left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={position.x === 0 && position.y === 0 ? undefined : { 
+          left: `${position.x}px`, 
+          top: `${position.y}px`, 
+          transform: 'none' 
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header da Boleta */}
@@ -1071,85 +1094,251 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
                 </div>
               )}
 
-              {/* Resumo da Operação - Card Unificado */}
-              <div className="bg-[#353535] p-3 rounded mb-4 border-b border-[#404040]">
-                <div className="flex justify-between mb-2">
-                  <div className="text-xs text-[#aaa]">Tipo de Preço:</div>
-                  <div className="text-xs font-bold text-white">{tipoPreco}</div>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <div className="text-xs text-[#aaa]">Validade:</div>
-                  <div className="text-xs font-bold text-white">{validade}</div>
-                </div>
-                <div className="flex justify-between mb-3">
-                  <div className="text-xs text-[#aaa]">Data:</div>
-                  <div className="text-xs font-bold text-white">{dataValidade}</div>
-                </div>
+              {/* Resumo da Operação - Acordeão Total Geral */}
+              <div className="mb-3">
+                <div className="border border-[#404040] rounded">
+                  <button
+                    className="w-full px-3 py-2 bg-[#353535] hover:bg-[#404040] transition-colors flex justify-between items-center text-left rounded-t"
+                    onClick={() => toggleAccordion("totalGeral")}
+                  >
+                    <span className="text-sm font-bold text-white">TOTAL GERAL</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-white">{totalComTaxas.toFixed(2)}</span>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`text-[#aaa] transition-transform ${confirmationState.accordionTotalGeralOpen ? "rotate-180" : ""}`}
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </div>
+                  </button>
 
-                {/* Adicionar esta nova linha */}
-                <div className="flex justify-between mb-3">
-                  <div className="text-xs text-[#aaa]">Total de Ativos:</div>
-                  <div className="text-xs font-bold text-white">{quantidade}</div>
-                </div>
+                  {confirmationState.accordionTotalGeralOpen && (
+                    <div className="p-3 bg-[#2e2e2e] border-t border-[#404040] rounded-b">
+                      <div className="bg-[#353535] p-3 rounded">
+                        <div className="flex justify-between mb-2">
+                          <div className="text-xs text-[#aaa]">Tipo de Preço:</div>
+                          <div className="text-xs font-bold text-white">{tipoPreco}</div>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <div className="text-xs text-[#aaa]">Validade:</div>
+                          <div className="text-xs font-bold text-white">{validade}</div>
+                        </div>
+                        <div className="flex justify-between mb-3">
+                          <div className="text-xs text-[#aaa]">Data:</div>
+                          <div className="text-xs font-bold text-white">{dataValidade}</div>
+                        </div>
 
-                {/* Linha separadora */}
-                <div className="border-b border-[#404040] mb-3"></div>
+                        <div className="flex justify-between mb-3">
+                          <div className="text-xs text-[#aaa]">Total de Ativos:</div>
+                          <div className="text-xs font-bold text-white">{quantidade}</div>
+                        </div>
 
-                {/* Total Geral */}
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-bold text-white">TOTAL GERAL</span>
-                  <span className="text-lg font-bold text-white">{totalComTaxas.toFixed(2)}</span>
-                </div>
-                <div className="text-xs text-[#aaa]">
-                  Valor da operação: {totalGeral.toFixed(2)} + Taxas: {totalTaxas.toFixed(2)}
-                </div>
-              </div>
+                        {/* Linha separadora */}
+                        <div className="border-b border-[#404040] mb-3"></div>
 
-              {/* Assinatura Eletrônica */}
-              <div className="mb-4">
-                <label className="block text-xs font-semibold text-[#aaa] mb-1">ASSINATURA ELETRÔNICA</label>
-                <div className="relative">
-                  <div className="relative flex items-center">
-                    <input
-                      ref={confirmationInputRef}
-                      type="password"
-                      value={confirmationState.assinatura}
-                      onChange={handleAssinaturaChange}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && e.ctrlKey) {
-                          e.preventDefault()
-                          executarOrdem()
-                        }
-                      }}
-                      className="w-full bg-[#353535] border border-[#404040] rounded px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#F7941E] pr-16"
-                      placeholder="Digite sua assinatura eletrônica"
-                    />
-                    <div className="absolute right-2 flex items-center">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-[#aaa] mr-1">Salvar</span>
-                        <button
-                          type="button"
-                          onClick={toggleSalvarSenha}
-                          className={`relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-[#F7941E] ${
-                            confirmationState.salvarSenha ? "bg-[#F7941E]" : "bg-[#555]"
-                          }`}
-                          aria-pressed={confirmationState.salvarSenha}
-                          aria-labelledby="salvar-senha-label"
-                        >
-                          <span
-                            className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
-                              confirmationState.salvarSenha ? "translate-x-3" : "translate-x-0.5"
-                            }`}
-                          />
-                        </button>
+                        {/* Detalhamento do total */}
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs text-[#aaa]">Valor da operação:</span>
+                          <span className="text-xs font-bold text-white">{totalGeral.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs text-[#aaa]">Taxas:</span>
+                          <span className="text-xs font-bold text-white">{totalTaxas.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t border-[#404040] mt-2 pt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-white">Total com taxas:</span>
+                            <span className="text-sm font-bold text-white">{totalComTaxas.toFixed(2)}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-xs text-[#666] mt-1 text-right">
-                    Pressione Ctrl + Enter para confirmar rapidamente
-                  </div>
+                  )}
                 </div>
               </div>
+
+              {/* Termo de Desenquadramento */}
+              <div className="mb-4">
+                <div className="border border-[#404040] rounded">
+                  <button
+                    className="w-full px-3 py-2 bg-[#353535] hover:bg-[#404040] transition-colors flex justify-between items-center text-left rounded-t"
+                    onClick={() => toggleAccordion("termo")}
+                  >
+                    <span className="text-sm font-semibold text-white flex items-center gap-2">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="text-[#F7941E]"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
+                      Termo de Desenquadramento
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {confirmationState.termoAceito && (
+                        <span className="bg-green-500/20 text-green-500 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                          Aceito
+                        </span>
+                      )}
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`text-[#aaa] transition-transform ${confirmationState.accordionTermoOpen ? "rotate-180" : ""}`}
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {confirmationState.accordionTermoOpen && (
+                    <div className="p-3 bg-[#2e2e2e] border-t border-[#404040] rounded-b">
+                      {/* Preview do PDF */}
+                      <div className="bg-white rounded p-2 mb-3 border border-[#404040]">
+                        <div className="bg-white rounded h-48 overflow-hidden relative">
+                          <iframe
+                            src="/nota-corretagem.pdf#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&page=1&view=FitH"
+                            className="w-full pointer-events-none h-[400px] -mt-[50px]"
+                            title="Preview do Termo"
+                          />
+                          <div className="absolute inset-0 pointer-events-none"></div>
+                        </div>
+                      </div>
+
+                      {/* Botão Visualizar Termo */}
+                      <button
+                        className="w-full mb-3 px-3 py-2 bg-[#444] hover:bg-[#555] text-white transition-colors text-xs font-semibold rounded flex items-center justify-center gap-2"
+                        onClick={() => {
+                          setShowPdfModal(true)
+                        }}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                          <polyline points="10 9 9 9 8 9" />
+                        </svg>
+                        Visualizar Termo Completo
+                      </button>
+
+                      {/* Mensagem informativa */}
+                      <div className="bg-[#353535] p-3 rounded mt-3">
+                        <div className="text-xs text-[#aaa] mb-2">
+                          {confirmationState.termoAceito ? (
+                            <div className="flex items-center gap-2">
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="text-green-500"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                              <span className="text-green-400 font-semibold">Você já aceitou os termos</span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 mb-1">
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  className="text-[#F7941E]"
+                                >
+                                  <circle cx="12" cy="12" r="10" />
+                                  <line x1="12" y1="8" x2="12" y2="12" />
+                                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                <span className="font-semibold">Importante:</span>
+                              </div>
+                              Para aceitar os termos, você deve primeiro visualizar o documento completo clicando no botão acima.
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Assinatura Eletrônica - só aparece se o termo foi aceito */}
+              {confirmationState.termoAceito && (
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-[#aaa] mb-1">ASSINATURA ELETRÔNICA</label>
+                  <div className="relative">
+                    <div className="relative flex items-center">
+                      <input
+                        ref={confirmationInputRef}
+                        type="password"
+                        value={confirmationState.assinatura}
+                        onChange={handleAssinaturaChange}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && e.ctrlKey) {
+                            e.preventDefault()
+                            executarOrdem()
+                          }
+                        }}
+                        className="w-full bg-[#353535] border border-[#404040] rounded px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#F7941E] pr-16"
+                        placeholder="Digite sua assinatura eletrônica"
+                      />
+                      <div className="absolute right-2 flex items-center">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-[#aaa] mr-1">Salvar</span>
+                          <button
+                            type="button"
+                            onClick={toggleSalvarSenha}
+                            className={`relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-[#F7941E] ${
+                              confirmationState.salvarSenha ? "bg-[#F7941E]" : "bg-[#555]"
+                            }`}
+                            aria-pressed={confirmationState.salvarSenha}
+                            aria-labelledby="salvar-senha-label"
+                          >
+                            <span
+                              className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
+                                confirmationState.salvarSenha ? "translate-x-3" : "translate-x-0.5"
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-[#666] mt-1 text-right">
+                      Pressione Ctrl + Enter para confirmar rapidamente
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Botões de ação */}
               <div className="flex justify-end gap-2">
@@ -1160,12 +1349,14 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
                   Voltar
                 </button>
                 <button
-                  className={`px-3 py-1 transition-colors font-semibold text-xs ${
+                  className={`px-3 py-1 transition-colors font-semibold text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                     tipoAtual === "comprar"
-                      ? "bg-green-600 hover:bg-green-700 text-white"
-                      : "bg-red-600 hover:bg-red-700 text-white"
+                      ? "bg-green-600 hover:bg-green-700 text-white disabled:hover:bg-green-600"
+                      : "bg-red-600 hover:bg-red-700 text-white disabled:hover:bg-red-600"
                   }`}
                   onClick={executarOrdem}
+                  disabled={!confirmationState.termoAceito}
+                  title={!confirmationState.termoAceito ? "Aceite o termo de desenquadramento primeiro" : ""}
                 >
                   Confirmar {tipoAtual === "comprar" ? "Compra" : "Venda"}
                 </button>
@@ -1180,6 +1371,135 @@ const Boleta = ({ isOpen, onClose, tipoOperacao = "comprar" }) => {
         onClose={() => setShowStockFinder(false)}
         onSelectStock={handleSelectStock}
       />
+      
+      {/* Modal do PDF - Completamente independente */}
+      {showPdfModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 z-[10002] flex items-center justify-center p-4"
+          onClick={(e) => {
+            // Prevenir que cliques no fundo fechem o modal
+            e.stopPropagation()
+          }}
+        >
+          <div 
+            className="bg-[#2a2a2a] rounded-lg w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl border border-[#404040]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className="bg-[#1e1e1e] px-4 py-3 border-b border-[#404040] rounded-t-lg flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="text-[#F7941E]"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+                Termo de Desenquadramento
+              </h3>
+              <button
+                className="p-1 hover:bg-[#3a3a3a] rounded transition-colors"
+                onClick={() => setShowPdfModal(false)}
+                title="Fechar"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-[#aaa] hover:text-white"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Conteúdo do PDF */}
+            <div className="flex-1 overflow-hidden p-4">
+              <div className="w-full h-full bg-gray-100 rounded border border-[#404040] overflow-hidden relative">
+                <div 
+                  className="w-full h-full overflow-auto"
+                  onScroll={(e) => {
+                    e.stopPropagation();
+                    const element = e.target;
+                    const scrollPercentage = (element.scrollTop / (element.scrollHeight - element.clientHeight)) * 100;
+                    
+                    // Considera lido se rolou mais de 90% do documento
+                    if (scrollPercentage > 90 && !confirmationState.pdfLidoCompletamente) {
+                      setConfirmationState(prevState => ({
+                        ...prevState,
+                        pdfLidoCompletamente: true
+                      }));
+                    }
+                  }}
+                >
+                  <embed
+                    src="/nota-corretagem.pdf"
+                    type="application/pdf"
+                    width="100%"
+                    className="w-full h-[2000px]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="bg-[#1e1e1e] px-4 py-3 border-t border-[#404040] rounded-b-lg flex justify-between items-center">
+              <div className="text-xs text-[#666]">
+                {confirmationState.pdfLidoCompletamente 
+                  ? "✓ Documento lido completamente" 
+                  : "Role até o final do documento para habilitar o botão"
+                }
+              </div>
+              <button
+                className={`px-4 py-2 transition-colors text-xs font-semibold rounded disabled:opacity-50 disabled:cursor-not-allowed ${
+                  confirmationState.pdfLidoCompletamente 
+                    ? "bg-[#F7941E] hover:bg-[#F7941E]/90 text-white" 
+                    : "bg-[#555] text-[#aaa] cursor-not-allowed"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (confirmationState.pdfLidoCompletamente) {
+                    setShowPdfModal(false)
+                    setConfirmationState(prevState => ({
+                      ...prevState,
+                      pdfLidoCompletamente: true,
+                      termoAceito: true,
+                      accordionTermoOpen: false, // Fecha o acordeão do termo
+                      accordionTotalGeralOpen: true // Abre o total geral
+                    }))
+                    // Focar e selecionar o campo de assinatura após fechar o modal
+                    setTimeout(() => {
+                      if (confirmationInputRef.current) {
+                        confirmationInputRef.current.focus()
+                        confirmationInputRef.current.select()
+                      }
+                    }, 100)
+                  }
+                }}
+                disabled={!confirmationState.pdfLidoCompletamente}
+                title={!confirmationState.pdfLidoCompletamente ? "Leia o termo completo primeiro" : ""}
+              >
+                Li e Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
